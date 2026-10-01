@@ -17,8 +17,8 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Enable CORS for frontend Vite dev server (http://localhost:5173 or 127.0.0.1)
-    CORS(app, resources={r"/api/*": {"origins": "*"}, r"/uploads/*": {"origins": "*"}})
+    # Enable CORS for frontend and deployment domains
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     # Initialize SQLite database and folders
     init_db()
