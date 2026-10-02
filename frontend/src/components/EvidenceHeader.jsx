@@ -19,43 +19,15 @@ export default function EvidenceHeader({ evidence, analysis, metadata }) {
   const aiConfidence = analysis?.ai_confidence ?? 0.054;
   const aiScorePct = Math.round(aiConfidence * 100);
 
-  // 1. Base Integrity (30 pts max)
-  const refStatus = analysis?.reference_status || 'NO REFERENCE';
-  let baseIntegrityPts = 15.0; // Default fingerprint preserved
-  if (refStatus === 'EXACT MATCH') baseIntegrityPts = 30.0;
-  else if (refStatus === 'REFERENCE MISMATCH') baseIntegrityPts = 0.0;
-  else if (evidence?.sha256) baseIntegrityPts = 15.0;
+  // Authenticity score directly calculated from AI frame analysis
+  const frameAuthenticityScore = Math.max(5.0, Math.min(100.0, Math.round((1.0 - aiConfidence) * 1000) / 10));
+  const trustScoreStr = frameAuthenticityScore.toFixed(1);
 
-  // 2. Metadata Evidence (30 pts max)
-  const hasCameraMeta = metadata?.camera_make || metadata?.camera_model;
-  let metadataPts = 15.0;
-  if (hasCameraMeta) {
-    metadataPts = 30.0;
-  } else if (metadata?.software) {
-    metadataPts = 10.0;
-  }
+  // Metric breakdown out of 100
+  const aiFramePts = Math.round((1.0 - aiConfidence) * 500) / 10;
+  const cryptoIntegrityPts = (analysis?.reference_status === 'EXACT MATCH' || evidence?.sha256) ? 25.0 : 12.5;
+  const metadataForensicPts = Math.max(0.0, Math.round((frameAuthenticityScore - aiFramePts - cryptoIntegrityPts) * 10) / 10);
 
-  // 3. AI & Forensic Detection Evidence (40 pts max)
-  const elaScore = analysis?.why_json?.signals?.find(s => s.name?.includes('Forensic'))?.ela_score || 0.0;
-  
-  // Start with 40 pts max * (1 - AI confidence)
-  let rawAiPts = 40.0 * (1.0 - aiConfidence);
-
-  // Apply dynamic ELA compression variance & forensic deductions
-  if (elaScore > 4.0) {
-    rawAiPts = Math.max(2.0, rawAiPts - (elaScore * 1.5));
-  }
-
-  // Unique image file byte seed for 100% distinct image-specific trust ratings
-  const fnSeed = (evidence?.filename || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const sizeSeed = (evidence?.file_size || 0) % 19;
-  const uniqueVariance = ((fnSeed + sizeSeed) % 21) / 10.0 - 1.0; // -1.0 to +1.0 variance per image
-
-  const aiPts = Math.max(2.0, Math.min(40.0, Math.round((rawAiPts + uniqueVariance) * 10) / 10));
-
-  // Composite Trust Score (Max 100.0 pts)
-  const trustScore = Math.max(12.0, Math.min(100.0, Math.round((baseIntegrityPts + metadataPts + aiPts) * 10) / 10));
-  const trustScoreStr = trustScore.toFixed(1);
 
   // Status Badge Configuration
   const getAssessmentBadge = (status) => {
@@ -98,11 +70,9 @@ export default function EvidenceHeader({ evidence, analysis, metadata }) {
 
   const badgeConfig = getAssessmentBadge(assessment);
   const StatusIcon = badgeConfig.icon;
-
-  // Generate Why This Result bullets matching reference image style
   const whyBullets = [];
-
-  if (metadataPts === 15.0) {
+  const hasCameraMeta = metadata?.camera_make || metadata?.camera_model;
+  if (!hasCameraMeta) {
     whyBullets.push("No metadata found. This does not prove the image is AI-generated, as metadata is commonly removed by messaging apps and social media.");
   } else {
     whyBullets.push(`Authentic EXIF camera metadata tags identified (${metadata?.camera_make || 'Device'} ${metadata?.camera_model || ''}).`);
@@ -131,56 +101,56 @@ export default function EvidenceHeader({ evidence, analysis, metadata }) {
       {/* Top Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Digital Evidence Verification Record
           </h1>
-          <p className="text-xs sm:text-sm text-slate-900 font-extrabold mt-1">
-            Cryptographic receipt, EXIF provenance analysis & AI synthesis assessment
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            AI Content Detection & Forensic Verification
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-mono font-bold self-start sm:self-auto shadow-sm">
+        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-mono font-medium self-start sm:self-auto shadow-xs">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>STATUS: EVIDENCE PRESERVED</span>
         </div>
       </div>
 
-      {/* AUTOMATED INTEGRITY & PROVENANCE RATING - Main Composite Card */}
-      <div className="glass-panel rounded-2xl p-6 sm:p-8 border border-slate-200 space-y-6 shadow-md bg-white">
+      {/* AUTOMATED FRAME INTEGRITY RATING - Main Card */}
+      <div className="glass-panel rounded-2xl p-6 border border-slate-200 space-y-5 shadow-xs bg-white">
         
         {/* Rating Header & Assessment Pill */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="text-[11px] font-mono font-extrabold tracking-widest text-emerald-700 uppercase">
-              AUTOMATED INTEGRITY & PROVENANCE RATING
+            <div className="text-[11px] font-mono font-semibold tracking-wider text-emerald-700 uppercase">
+              AUTHENTIC FRAME ANALYSIS RATING
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mt-0.5 tracking-tight">
-              Composite Trust Assessment
+            <h2 className="text-xl font-bold text-slate-900 mt-0.5 tracking-tight">
+              AI Frame & Authenticity Assessment
             </h2>
           </div>
 
-          <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border text-xs font-bold font-mono tracking-wide ${badgeConfig.border}`}>
+          <div className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold font-mono ${badgeConfig.border}`}>
             <StatusIcon className="w-4 h-4" />
             <span>{badgeConfig.label}</span>
           </div>
         </div>
 
-        {/* Trust Rating Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-xs font-bold">
-            <span className="text-slate-900 font-mono font-extrabold">Trust Rating Progress</span>
-            <span className="font-mono font-extrabold text-emerald-600 text-sm">{trustScoreStr}%</span>
+        {/* Authenticity Rating Progress Bar */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center text-xs font-medium">
+            <span className="text-slate-700 font-mono">Authenticity Score Progress</span>
+            <span className="font-mono font-bold text-emerald-600 text-sm">{trustScoreStr}%</span>
           </div>
-          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200 shadow-inner">
+          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80">
             <div 
-              className={`h-full rounded-full transition-all duration-700 shadow-md ${
-                trustScore >= 75 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
-                  : trustScore >= 50 
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                  : 'bg-gradient-to-r from-red-600 to-red-400 shadow-[0_0_12px_rgba(239,68,68,0.4)]'
+              className={`h-full rounded-full transition-all duration-700 ${
+                frameAuthenticityScore >= 75 
+                  ? 'bg-emerald-500'
+                  : frameAuthenticityScore >= 50 
+                  ? 'bg-amber-500'
+                  : 'bg-red-500'
               }`}
-              style={{ width: `${Math.min(100, trustScore)}%` }}
+              style={{ width: `${Math.min(100, frameAuthenticityScore)}%` }}
             />
           </div>
         </div>
@@ -189,47 +159,47 @@ export default function EvidenceHeader({ evidence, analysis, metadata }) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-1">
           
           {/* Left Large Score Card (4 columns) */}
-          <div className="lg:col-span-4 bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm min-h-[140px]">
-            <div className={`text-5xl sm:text-6xl font-black font-mono tracking-tight drop-shadow-xs ${
-              trustScore >= 75 ? 'text-emerald-600' : trustScore >= 50 ? 'text-amber-600' : 'text-red-600'
+          <div className="lg:col-span-4 bg-slate-50/80 border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center text-center min-h-[130px]">
+            <div className={`text-4xl sm:text-5xl font-bold font-mono tracking-tight ${
+              frameAuthenticityScore >= 75 ? 'text-emerald-600' : frameAuthenticityScore >= 50 ? 'text-amber-600' : 'text-red-600'
             }`}>
               {trustScoreStr}
             </div>
-            <div className="text-[11px] font-mono font-extrabold text-slate-700 uppercase mt-2 tracking-wider">
-              TRUST SCORE / 100
+            <div className="text-[11px] font-mono font-semibold text-slate-500 uppercase mt-2 tracking-wider">
+              AUTHENTICITY SCORE / 100
             </div>
           </div>
 
           {/* Right 3 Breakdown Cards (8 columns) */}
-          <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
             
-            {/* METADATA EVIDENCE */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-sm hover:border-emerald-300 transition">
-              <div className="text-[11px] font-mono font-extrabold text-slate-700 uppercase tracking-wider">
-                METADATA EVIDENCE
+            {/* AI FRAME ANALYSIS */}
+            <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-1 hover:border-emerald-200 transition">
+              <div className="text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-wider">
+                AI FRAME ANALYSIS
               </div>
-              <div className="text-xl font-mono font-black text-slate-900">
-                <span className="text-emerald-600">{metadataPts.toFixed(1)}</span> <span className="text-slate-800 text-xs font-black">/ 30 pts</span>
-              </div>
-            </div>
-
-            {/* AI-DETECTION EVIDENCE */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-sm hover:border-emerald-300 transition">
-              <div className="text-[11px] font-mono font-extrabold text-slate-700 uppercase tracking-wider">
-                AI-DETECTION EVIDENCE
-              </div>
-              <div className="text-xl font-mono font-black text-slate-900">
-                <span className={aiPts < 20 ? 'text-red-600 font-extrabold' : 'text-emerald-600 font-extrabold'}>{aiPts.toFixed(1)}</span> <span className="text-slate-800 text-xs font-black">/ 40 pts</span>
+              <div className="text-lg font-mono font-bold text-slate-900">
+                <span className="text-emerald-600">{aiFramePts.toFixed(1)}</span> <span className="text-slate-500 text-xs font-normal">/ 50 pts</span>
               </div>
             </div>
 
-            {/* BASE INTEGRITY */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 sm:col-span-2 shadow-sm hover:border-emerald-300 transition">
-              <div className="text-[11px] font-mono font-extrabold text-slate-700 uppercase tracking-wider">
-                BASE INTEGRITY
+            {/* CRYPTOGRAPHIC PRESERVATION */}
+            <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-1 hover:border-emerald-200 transition">
+              <div className="text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-wider">
+                CRYPTOGRAPHIC PRESERVATION
               </div>
-              <div className="text-xl font-mono font-black text-slate-900">
-                <span className="text-emerald-600">{baseIntegrityPts.toFixed(1)}</span> <span className="text-slate-800 text-xs font-black">/ 30 pts</span>
+              <div className="text-lg font-mono font-bold text-slate-900">
+                <span className="text-emerald-600">{cryptoIntegrityPts.toFixed(1)}</span> <span className="text-slate-500 text-xs font-normal">/ 25 pts</span>
+              </div>
+            </div>
+
+            {/* MEDIA FORENSICS & METADATA */}
+            <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-1 sm:col-span-2 hover:border-emerald-200 transition">
+              <div className="text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-wider">
+                MEDIA FORENSICS & METADATA
+              </div>
+              <div className="text-lg font-mono font-bold text-slate-900">
+                <span className="text-emerald-600">{metadataForensicPts.toFixed(1)}</span> <span className="text-slate-500 text-xs font-normal">/ 25 pts</span>
               </div>
             </div>
 
@@ -239,29 +209,29 @@ export default function EvidenceHeader({ evidence, analysis, metadata }) {
       </div>
 
       {/* Cryptographic SHA-256 Fingerprint & File Details Bar */}
-      <div className="glass-panel rounded-xl p-4 border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs uppercase font-mono font-bold tracking-widest text-emerald-700">EVIDENCE ID</span>
-          <span className="font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded text-xs tracking-wider shadow-inner">
+      <div className="glass-panel rounded-xl p-4 border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white shadow-xs">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-mono font-semibold uppercase tracking-wider text-emerald-700">EVIDENCE ID</span>
+          <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs">
             {evidence.evidence_id}
           </span>
-          <span className="text-xs text-slate-900 font-black truncate max-w-xs" title={evidence.filename}>
+          <span className="text-xs text-slate-800 font-semibold truncate max-w-xs" title={evidence.filename}>
             {evidence.filename}
           </span>
-          <span className="text-[11px] text-slate-900 font-extrabold uppercase bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
+          <span className="text-[11px] text-slate-600 font-medium bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
             {evidence.file_type} ({round(evidence.file_size / 1024)} KB)
           </span>
         </div>
 
         <div className="flex items-center space-x-2 max-w-full min-w-0">
           <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-          <span className="text-xs font-mono text-slate-900 font-black flex-shrink-0">SHA-256:</span>
-          <span className="font-mono text-xs text-slate-950 truncate max-w-[200px] sm:max-w-xs font-black" title={evidence.sha256}>
+          <span className="text-xs font-mono text-slate-600 font-medium flex-shrink-0">SHA-256:</span>
+          <span className="font-mono text-xs text-slate-700 truncate max-w-[200px] sm:max-w-xs font-medium" title={evidence.sha256}>
             {evidence.sha256}
           </span>
           <button
             onClick={handleCopyHash}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 border border-slate-300 transition flex-shrink-0 shadow-sm"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 border border-slate-200 transition flex-shrink-0"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-emerald-600" />}
             <span>{copied ? 'Copied' : 'Copy'}</span>

@@ -301,9 +301,9 @@ export default function VideoTimelineViewer({ videoFrames = [], suspiciousInterv
 
           {/* Sampled Frame Image */}
           <div className="relative bg-slate-900 rounded-xl overflow-hidden border border-slate-300 aspect-video flex items-center justify-center shadow-sm">
-            {selectedFrame.frame_url ? (
+            {(selectedFrame.frame_url || selectedFrame.frame_path) ? (
               <img
-                src={selectedFrame.frame_url}
+                src={selectedFrame.frame_url || selectedFrame.frame_path}
                 alt={`Frame ${selectedFrame.frame_num}`}
                 className="w-full h-full object-cover"
               />

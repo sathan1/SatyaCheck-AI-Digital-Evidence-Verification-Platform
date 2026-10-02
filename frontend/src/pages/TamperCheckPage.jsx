@@ -46,12 +46,11 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
   };
 
   useEffect(() => {
-    loadDemoScenario('certificate_tampered');
+    // Initial view starts with upload form ready
   }, []);
 
   const handleFileUploadAndVerify = async (file) => {
     setLoading(true);
-    setComparisonResult(null);
     setQrAlertMessage('');
     try {
       const uploadRes = await api.uploadFile(file);
@@ -59,15 +58,17 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
       setEvidenceIdInput(evId);
       
       const res = await api.verifyQrTamper(evId);
-      setComparisonResult(res);
 
       if (!res.qr_found) {
-        const msg = "⚠️ No QR code detected in the uploaded file.";
-        setQrAlertMessage(msg);
-        alert(msg);
+        setComparisonResult(null);
+        setQrAlertMessage("⚠️ No embedded QR Code detected in this certificate.");
+      } else {
+        setComparisonResult(res);
+        setQrAlertMessage('');
       }
     } catch (err) {
-      alert("Failed to analyze uploaded file for QR tampering.");
+      setComparisonResult(null);
+      setQrAlertMessage("⚠️ No embedded QR Code detected in this certificate.");
     } finally {
       setLoading(false);
     }
@@ -77,19 +78,20 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
     if (e) e.preventDefault();
     if (!evidenceIdInput.trim()) return;
     setLoading(true);
-    setComparisonResult(null);
     setQrAlertMessage('');
     try {
       const res = await api.verifyQrTamper(evidenceIdInput.trim());
-      setComparisonResult(res);
 
       if (!res.qr_found) {
-        const msg = "⚠️ No QR code detected in the uploaded file.";
-        setQrAlertMessage(msg);
-        alert(msg);
+        setComparisonResult(null);
+        setQrAlertMessage("⚠️ No embedded QR Code detected in this certificate.");
+      } else {
+        setComparisonResult(res);
+        setQrAlertMessage('');
       }
     } catch (err) {
-      alert("Verification failed. Please check Evidence ID.");
+      setComparisonResult(null);
+      setQrAlertMessage("⚠️ No embedded QR Code detected in this certificate.");
     } finally {
       setLoading(false);
     }
@@ -103,77 +105,28 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
       <Breadcrumb activeTab="tamper" onNavigate={onNavigate || (() => {})} />
 
       {/* Dedicated Certificate Check Banner & Header */}
-      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 border-emerald-400 p-5 rounded-3xl shadow-sm space-y-2">
-        <div className="flex items-center space-x-2 text-emerald-900 font-mono text-xs uppercase tracking-widest font-black bg-emerald-200/80 border border-emerald-400 w-fit px-3 py-1 rounded-full shadow-xs">
-          <QrCode className="w-4 h-4 text-emerald-800" />
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-300 p-5 rounded-2xl shadow-xs space-y-2">
+        <div className="flex items-center space-x-2 text-emerald-800 font-mono text-xs uppercase tracking-wider font-semibold bg-emerald-100/80 border border-emerald-300 w-fit px-3 py-0.5 rounded-full">
+          <QrCode className="w-4 h-4 text-emerald-700" />
           <span>CERTIFICATE CHECK MODULE</span>
         </div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Certificate Check</h1>
-        <p className="text-xs sm:text-sm font-extrabold text-slate-900 max-w-2xl">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Certificate Check</h1>
+        <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
           Decodes embedded QR codes and verifies document text to compute an instant 100-Point Integrity Rating.
         </p>
       </div>
 
-      {/* 3 Interactive Demo Selector Tabs */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-xs font-bold text-slate-900 font-mono uppercase tracking-wider">
-            <Sparkles className="w-4 h-4 text-cyan-600 animate-pulse" />
-            <span>CERTIFICATE VERIFICATION DEMO SAMPLES</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            onClick={() => loadDemoScenario('certificate_tampered')}
-            className={`p-3.5 rounded-xl border flex items-center justify-center space-x-2 text-xs font-bold transition ${
-              activeTab === 'certificate_tampered'
-                ? 'bg-red-50 text-red-900 border-red-400 shadow-sm'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-            }`}
-          >
-            <Award className="w-4 h-4 text-red-600" />
-            <span>Community Certificate (Tampered)</span>
-          </button>
-
-          <button
-            onClick={() => loadDemoScenario('mark_sheet')}
-            className={`p-3.5 rounded-xl border flex items-center justify-center space-x-2 text-xs font-bold transition ${
-              activeTab === 'mark_sheet'
-                ? 'bg-amber-50 text-amber-900 border-amber-400 shadow-sm'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-            }`}
-          >
-            <FileText className="w-4 h-4 text-amber-600" />
-            <span>Academic Mark Sheet (Tampered Marks)</span>
-          </button>
-
-          <button
-            onClick={() => loadDemoScenario('genuine')}
-            className={`p-3.5 rounded-xl border flex items-center justify-center space-x-2 text-xs font-bold transition ${
-              activeTab === 'genuine'
-                ? 'bg-emerald-50 text-emerald-900 border-emerald-400 shadow-sm'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Authentic Government Certificate (Verified)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Custom Certificate Upload & Evidence ID Verification */}
-      <div className="glass-panel p-5 rounded-2xl border border-slate-200 bg-white space-y-4 shadow-sm">
-        <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 rounded-lg bg-cyan-100 border border-cyan-300 flex items-center justify-center text-cyan-800 text-xs font-bold font-mono">
+      <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-4 shadow-xs">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-cyan-100 border border-cyan-200 flex items-center justify-center text-cyan-800 text-xs font-bold font-mono">
             QR
           </div>
-          <h3 className="text-sm font-bold text-slate-900">UPLOAD CERTIFICATE IMAGE OR ENTER EVIDENCE ID</h3>
+          <h3 className="text-base font-bold text-slate-900">UPLOAD CERTIFICATE IMAGE OR ENTER EVIDENCE ID</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Upload Dropzone */}
-          <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-cyan-500 bg-slate-50 transition cursor-pointer flex flex-col items-center justify-center space-y-2 relative">
+          <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 text-center hover:border-cyan-500 bg-slate-50 transition cursor-pointer flex flex-col items-center justify-center space-y-2 relative">
             <input
               type="file"
               accept=".jpg,.jpeg,.png,.webp,.pdf"
@@ -186,25 +139,25 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
             />
             <Upload className="w-6 h-6 text-cyan-600" />
             <div>
-              <span className="text-xs font-bold text-slate-800 block">Click or Drop Certificate File Here</span>
-              <span className="text-[11px] text-slate-500">Decodes QR code and checks text consistency</span>
+              <span className="text-xs font-semibold text-slate-800 block">Click or Drop Certificate File Here</span>
+              <span className="text-[11px] text-slate-500 font-normal">Decodes QR code and checks text consistency</span>
             </div>
           </div>
 
           {/* Evidence ID Input */}
           <form onSubmit={handleVerifyById} className="space-y-2 text-xs flex flex-col justify-center">
-            <label className="font-bold text-slate-700">OR Enter Existing Evidence ID:</label>
+            <label className="font-semibold text-slate-800">OR Enter Existing Evidence ID:</label>
             <input
               type="text"
               placeholder="e.g. SATYA-2026-8F3A7C"
               value={evidenceIdInput}
               onChange={(e) => setEvidenceIdInput(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 font-mono focus:outline-none focus:border-cyan-500"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-mono font-semibold text-slate-800 focus:outline-none focus:border-cyan-500"
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm transition flex items-center justify-center space-x-1.5"
+              className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs shadow-xs transition flex items-center justify-center space-x-2"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>{loading ? 'Scanning & Decoding...' : 'Run QR & Document Consistency Check'}</span>
@@ -213,54 +166,54 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
         </div>
       </div>
 
-      {/* NO QR CODE POPUP NOTIFICATION BANNER */}
+      {/* NO QR CODE POPUP NOTIFICATION BANNER (Displayed ONLY when NO QR code is found) */}
       {qrAlertMessage && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold font-mono flex items-center justify-between shadow-sm animate-fade-in">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold font-mono flex items-center justify-between shadow-xs animate-fade-in">
           <div className="flex items-center space-x-2.5">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
             <span>{qrAlertMessage}</span>
           </div>
           <button
             onClick={() => setQrAlertMessage('')}
-            className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-extrabold text-xs transition"
+            className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs transition"
           >
             ✕ Close
           </button>
         </div>
       )}
 
-      {/* RESULT DISPLAY CARD */}
-      {comparisonResult && (
-        <div className={`glass-panel rounded-3xl p-6 sm:p-8 border shadow-sm space-y-6 ${
-          isAuthentic ? 'border-emerald-300 bg-emerald-50/40' : 'border-red-300 bg-red-50/40'
+      {/* RESULT DISPLAY CARD (Displayed ONLY when QR Code IS present) */}
+      {comparisonResult && comparisonResult.qr_found && (
+        <div className={`glass-panel rounded-2xl p-6 sm:p-8 border shadow-xs space-y-6 ${
+          isAuthentic ? 'border-emerald-200 bg-emerald-50/20' : 'border-red-200 bg-red-50/20'
         }`}>
 
           {/* Top Status Header with 100-Point Score Rating */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
             <div className="flex items-center space-x-3">
               {isAuthentic ? (
-                <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <CheckCircle2 className="w-8 h-8" />
+                <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 className="w-7 h-7" />
                 </div>
               ) : (
-                <div className="p-3 rounded-2xl bg-red-100 text-red-800 border border-red-300">
-                  <AlertCircle className="w-8 h-8" />
+                <div className="p-3 rounded-xl bg-red-50 text-red-700 border border-red-200">
+                  <AlertCircle className="w-7 h-7" />
                 </div>
               )}
               <div>
-                <span className="text-[11px] font-mono font-bold text-slate-500 uppercase tracking-widest">VERDICT</span>
-                <h2 className={`text-2xl sm:text-3xl font-black ${isAuthentic ? 'text-emerald-900' : 'text-red-900'}`}>
+                <span className="text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-wider">VERDICT</span>
+                <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${isAuthentic ? 'text-emerald-900' : 'text-red-900'}`}>
                   {comparisonResult.main_result || comparisonResult.status}
                 </h2>
               </div>
             </div>
 
             {/* Large 100-Point Score Badge */}
-            <div className={`px-5 py-3 rounded-2xl border text-center font-mono shadow-sm ${
-              isAuthentic ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-red-100 text-red-900 border-red-300'
+            <div className={`px-4 py-2.5 rounded-xl border text-center font-mono shadow-xs ${
+              isAuthentic ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-red-50 text-red-900 border-red-200'
             }`}>
-              <div className="text-xs font-bold uppercase tracking-wider">INTEGRITY SCORE</div>
-              <div className="text-3xl font-black">{score} / 100</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">INTEGRITY SCORE</div>
+              <div className="text-2xl font-bold">{score} / 100</div>
             </div>
           </div>
 
@@ -278,60 +231,75 @@ export default function TamperCheckPage({ onViewDetail, onNavigate }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             
             {/* 1. WHAT CHANGED? */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3.5 shadow-xs">
               <div className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">
                 🔎 WHAT CHANGED?
               </div>
 
-              <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono text-xs">
-                <div className="text-center flex-1">
-                  <div className="text-[10px] text-slate-500 font-sans">QR RECORD</div>
-                  <div className="font-bold text-slate-800 text-[11px] truncate">{comparisonResult.what_changed?.qr_record_value}</div>
+              <div className="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <div className="text-center flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-slate-600">QR RECORD</div>
+                  <div className="font-bold text-slate-900 text-xs sm:text-sm truncate mt-0.5" title={comparisonResult.what_changed?.qr_record_value}>
+                    {comparisonResult.what_changed?.qr_record_value}
+                  </div>
                 </div>
 
-                <ArrowRight className="w-4 h-4 text-red-500 shrink-0 mx-1" />
+                <ArrowRight className="w-4 h-4 text-red-500 shrink-0 mx-2" />
 
-                <div className="text-center flex-1">
-                  <div className="text-[10px] text-slate-500 font-sans">CERTIFICATE TEXT</div>
-                  <div className="font-bold text-red-600 text-[11px] truncate">{comparisonResult.what_changed?.certificate_text_value}</div>
+                <div className="text-center flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-slate-600">CERTIFICATE TEXT</div>
+                  <div className="font-bold text-red-600 text-xs sm:text-sm truncate mt-0.5" title={comparisonResult.what_changed?.certificate_text_value}>
+                    {comparisonResult.what_changed?.certificate_text_value}
+                  </div>
                 </div>
               </div>
 
-              <div className={`text-center text-xs font-bold font-mono p-2 rounded-lg border ${
-                isAuthentic ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'
+              <div className={`text-center text-xs sm:text-sm font-semibold p-2.5 rounded-xl border ${
+                isAuthentic ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
               }`}>
                 {comparisonResult.what_changed?.arrow}
               </div>
             </div>
 
             {/* 2. WHERE DID IT CHANGE? */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3.5 shadow-xs">
               <div className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">
                 📍 WHERE DID IT CHANGE?
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center space-y-1">
-                <div className="text-sm font-extrabold text-slate-900">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center space-y-1.5">
+                <div className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
                   {comparisonResult.where_changed}
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-600 font-medium">
                   Cross-checked against embedded QR record
                 </div>
               </div>
             </div>
 
             {/* 3. WHY WAS IT FLAGGED? */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3.5 shadow-xs">
               <div className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">
                 WHY WAS IT FLAGGED?
               </div>
 
-              <div className="space-y-1.5 text-xs text-slate-700 font-medium">
-                {comparisonResult.why_flagged?.map((item, i) => (
-                  <div key={i} className="flex items-center space-x-1.5">
-                    <span>{item}</span>
-                  </div>
-                ))}
+              <div className="space-y-2 text-xs sm:text-sm text-slate-800 font-medium">
+                {comparisonResult.why_flagged?.map((item, i) => {
+                  const isPass = item.includes('✓') || item.includes('✅');
+                  const isFail = item.includes('❌');
+                  const cleanText = item.replace(/^(❌\s*|✓\s*|✅\s*|•\s*)+/, '').trim();
+
+                  return (
+                    <div key={i} className="flex items-start space-x-2 leading-relaxed">
+                      <span className="shrink-0 mt-0.5">
+                        {isFail ? '❌' : isPass ? '✅' : '•'}
+                      </span>
+                      <span className={isFail ? 'text-slate-900 font-semibold' : 'text-slate-800 font-medium'}>
+                        {cleanText}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

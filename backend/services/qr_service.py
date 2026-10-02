@@ -1,8 +1,15 @@
 import os
 import re
+import json
 import cv2
 import numpy as np
 from PIL import Image
+
+try:
+    import zxingcpp
+    HAS_ZXING = True
+except Exception:
+    HAS_ZXING = False
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
@@ -19,8 +26,18 @@ class QRService:
         if img_bgr is None:
             return results
 
-        # Method 1: pyzbar if available
-        if HAS_PYZBAR:
+        # Method 1: zxing-cpp (Fastest & most robust C++ QR decoder)
+        if HAS_ZXING:
+            try:
+                decoded_objs = zxingcpp.read_barcodes(img_bgr)
+                for obj in decoded_objs:
+                    if obj.text and obj.text not in results:
+                        results.append(obj.text)
+            except Exception as e:
+                print(f"zxing-cpp scan error: {e}")
+
+        # Method 2: pyzbar if available and zxing found nothing
+        if not results and HAS_PYZBAR:
             try:
                 pil_img = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
                 decoded_objs = pyzbar_decode(pil_img)
@@ -31,7 +48,7 @@ class QRService:
             except Exception:
                 pass
 
-        # Method 2: OpenCV built-in QRCodeDetector (Fallback)
+        # Method 3: OpenCV built-in QRCodeDetector (Fallback)
         if not results:
             try:
                 detector = cv2.QRCodeDetector()
@@ -39,7 +56,6 @@ class QRService:
                 if val and val not in results:
                     results.append(val)
                 else:
-                    # Multi-QR detector
                     retval, decoded_info, _, _ = detector.detectAndDecodeMulti(img_bgr)
                     if retval:
                         for s in decoded_info:
@@ -71,13 +87,42 @@ class QRService:
     @staticmethod
     def parse_fields_from_text(text: str) -> dict:
         """
-        Extracts key-value pairs (Name, Score, ID, Date, Category, Amount, etc.)
-        from QR content or visible document text.
+        Extracts key-value pairs (Name, Score, ID, Date, Category, Amount, Course, etc.)
+        from QR content (JSON or text) or visible document text.
         """
         if not text:
             return {}
 
         fields = {}
+
+        # 1. Parse JSON payloads (W3C Verifiable Credentials / Sunbird / Infosys / Government JSON QRs)
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                subject = data.get("credentialSubject", data)
+                if isinstance(subject, dict):
+                    name = subject.get("issuedTo") or subject.get("name") or subject.get("candidateName") or subject.get("studentName")
+                    course = subject.get("course") or subject.get("title") or subject.get("subject")
+                    date_val = subject.get("completedOn") or subject.get("issuedOn") or data.get("issuanceDate")
+                    cert_id = subject.get("id") or data.get("id") or subject.get("certificateId")
+                    
+                    if name:
+                        fields["Name"] = str(name)
+                    if course:
+                        fields["Course"] = str(course)
+                    if date_val:
+                        fields["Date"] = str(date_val).split("T")[0]
+                    if cert_id:
+                        fields["ID"] = str(cert_id)
+                    if data.get("issuer"):
+                        fields["Issuer"] = str(data.get("issuer"))
+
+                if fields:
+                    return fields
+        except Exception:
+            pass
+
+        # 2. Parse key-value line formatted text
         clean_text = text.replace('|', '\n').replace(';', '\n')
         lines = [line.strip() for line in clean_text.split('\n') if line.strip()]
 
@@ -86,6 +131,7 @@ class QRService:
             'student name': 'Name',
             'candidate name': 'Name',
             'holder name': 'Name',
+            'issued to': 'Name',
 
             'score': 'Score',
             'total score': 'Score',
@@ -105,8 +151,12 @@ class QRService:
             'date': 'Date',
             'approved date': 'Date',
             'issue date': 'Date',
+            'completed on': 'Date',
             'dob': 'Date',
 
+            'course': 'Course',
+            'title': 'Course',
+            'subject': 'Course',
             'category': 'Category',
             'amount': 'Amount',
             'approved amount': 'Amount',
@@ -134,10 +184,11 @@ class QRService:
                     fields[raw_key.title()] = val
 
         inline_patterns = [
-            (r'\b(Name|Student Name)\s*[:=\-]\s*([A-Za-z\s]+)', 'Name'),
+            (r'\b(Name|Student Name|Issued To)\s*[:=\-]\s*([A-Za-z\s]+)', 'Name'),
             (r'\b(Score|Total Score|Marks)\s*[:=\-]\s*([\d%\/]+)', 'Score'),
             (r'\b(ID|CERT ID|Student ID|Ref-ID|REF ID|Roll No)\s*[:=\-]\s*([A-Za-z0-9\-]+)', 'ID'),
-            (r'\b(Date|Approved Date|Issue Date)\s*[:=\-]\s*([\d\-\/\.]+)', 'Date'),
+            (r'\b(Date|Approved Date|Issue Date|Completed On)\s*[:=\-]\s*([\d\-\/\.T:]+)', 'Date'),
+            (r'\b(Course|Subject)\s*[:=\-]\s*([A-Za-z0-9\s]+)', 'Course'),
             (r'\b(Category)\s*[:=\-]\s*([A-Za-z0-9]+)', 'Category'),
             (r'\b(Amount|Approved Amount)\s*[:=\-]\s*([₹\$A-Za-z0-9,\.]+)', 'Amount')
         ]
@@ -175,13 +226,15 @@ class QRService:
                 norm_qr = qr_val.strip()
                 norm_doc = doc_val.strip()
 
-                if norm_qr == norm_doc:
-                    field_results.append(f"✅ {field_name} Verified - QR matches certificate")
+                if norm_qr.lower() in norm_doc.lower() or norm_doc.lower() in norm_qr.lower():
+                    field_results.append(f"✅ {field_name} Verified - QR matches certificate ({norm_qr})")
                 else:
                     field_results.append(f"⚠️ INCONSISTENCY DETECTED - {field_name}: QR says '{norm_qr}', certificate shows '{norm_doc}'")
                     has_inconsistency = True
             elif doc_text and qr_val.strip().lower() in doc_text.lower():
-                field_results.append(f"✅ {field_name} Verified - QR matches certificate")
+                field_results.append(f"✅ {field_name} Verified - QR matches certificate ({qr_val.strip()})")
+            else:
+                field_results.append(f"ℹ️ {field_name}: {qr_val.strip()} (Decoded from Embedded QR)")
 
         has_fields = len(field_results) > 0
 
@@ -286,6 +339,7 @@ class QRService:
             "has_inconsistency": cmp_res["has_inconsistency"],
             "warning_message": cmp_res["warning_message"],
             "consistency_status": consistency_status,
+
             "consistency_message": consistency_message,
             "diff_details": "\n".join(cmp_res["field_results"]) if cmp_res["field_results"] else None,
             "tesseract_error": tesseract_err_msg
@@ -300,14 +354,13 @@ class QRService:
                 "message": "No QR code present for consistency verification.",
                 "diff_details": None
             }
-        
+
         status = "INCONSISTENT" if cmp_res["has_inconsistency"] else "CONSISTENT"
         msg = cmp_res["warning_message"] if cmp_res["has_inconsistency"] else "✅ Consistency Verified - QR data matches document content"
         diff = "\n".join(cmp_res["field_results"]) if cmp_res["field_results"] else None
-        
+
         return {
             "status": status,
             "message": msg,
             "diff_details": diff
         }
-

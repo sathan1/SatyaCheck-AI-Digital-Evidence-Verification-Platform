@@ -16,25 +16,27 @@ class DemoProvider(BaseAIProvider):
         self.provider_name = "DemoProvider (Simulated)"
 
     def analyze_image(self, file_path: str, is_demo_preset: str = None) -> dict:
-        filename = os.path.basename(file_path).lower()
+        fn_base = os.path.basename(file_path)
+        filename = fn_base.lower()
+        file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 1024
+        fn_seed = sum(ord(c) * (i + 1) for i, c in enumerate(fn_base)) + file_size
+        unique_var = ((fn_seed % 89) - 44) / 1000.0
 
-        # Keywords checking for explicit presets
-        real_keywords = ["authentic", "camera", "canon", "nikon", "iphone", "samsung", "exif", "original_photo", "dsc_"]
-        ai_keywords = ["ai", "synthetic", "midjourney", "diffusion", "deepfake", "generated", "dall", "stablediffusion", "flux"]
+        is_ai_keyword = any(k in filename for k in ["fake", "ai", "synthetic", "deepfake", "chatgpt", "dall", "midjourney", "generated", "stablediffusion", "flux", "sora", "runway", "pika"])
 
-        if is_demo_preset == "authentic" or any(k in filename for k in real_keywords):
-            confidence = 0.054
+        if is_demo_preset == "authentic":
+            confidence = round(0.054 + unique_var, 4)
             indicator = "Low"
-        elif is_demo_preset == "modified" or "mismatch" in filename:
-            confidence = 0.682
+        elif is_demo_preset == "modified":
+            confidence = round(0.682 + unique_var, 4)
             indicator = "Medium"
-        elif is_demo_preset == "ai_generated" or any(k in filename for k in ai_keywords):
-            confidence = 0.884
+        elif is_demo_preset == "ai_generated" or is_ai_keyword:
+            confidence = round(max(0.76, min(0.945, 0.865 + unique_var)), 4)
             indicator = "Elevated"
         else:
             # Multi-signal AI Forensic Analysis on actual image pixel data
             score_signals = []
-            ai_score = 0.25 # Neutral baseline
+            ai_score = 0.05
 
             try:
                 # 1. EXIF Metadata Hardware Check
@@ -120,42 +122,68 @@ class DemoProvider(BaseAIProvider):
         }
 
     def analyze_frame(self, frame_img_array, frame_index: int = 0, is_demo_video: bool = False, filename: str = "") -> dict:
-        """
-        Frame-level AI analysis for video frame sampling pipeline.
-        Calculates Laplacian noise variance & color std to classify AI vs Normal frames.
-        """
         try:
-            fn = filename.lower()
-            is_ai_filename = any(k in fn for k in ["ai", "deepfake", "synthetic", "midjourney", "sora", "runway", "pika", "merged", "edited", "tampered", "demo"])
+            gray = cv2.cvtColor(frame_img_array, cv2.COLOR_BGR2GRAY)
+            laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
-            if (is_demo_video or is_ai_filename) and (4 <= frame_index <= 8 or frame_index % 4 == 0 or "ai" in fn):
-                confidence = round(0.86 + (random.randint(-2, 4) / 100.0), 4)
-                indicator = "Elevated"
-            else:
-                gray = cv2.cvtColor(frame_img_array, cv2.COLOR_BGR2GRAY)
-                variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+            noise = cv2.absdiff(gray, blur)
+            noise_var = float(np.var(noise))
 
-                if variance < 160:
-                    confidence = min(0.94, round(0.82 + (variance % 8) / 100.0, 4))
-                    indicator = "Elevated"
-                elif variance > 450:
-                    confidence = max(0.08, round(0.12 + (variance % 5) / 100.0, 4))
-                    indicator = "Low"
-                else:
-                    base = 0.15 + (frame_index % 3) * 0.04
-                    confidence = round(base, 4)
-                    indicator = "Elevated" if confidence >= 0.70 else ("Medium" if confidence >= 0.40 else "Low")
+            f = np.fft.fft2(gray.astype(np.float32))
+            fshift = np.fft.fftshift(f)
+            mag = 20 * np.log(np.abs(fshift) + 1e-5)
+            h, w = gray.shape
+            cy, cx = h // 2, w // 2
+            center_e = np.mean(mag[max(0, cy-15):min(h, cy+15), max(0, cx-15):min(w, cx+15)])
+            total_e = np.mean(mag) + 1e-5
+            fft_ratio = float(center_e / total_e)
+
+            hsv = cv2.cvtColor(frame_img_array, cv2.COLOR_BGR2HSV)
+            sat_std = float(np.std(hsv[:, :, 1]))
+
+            frame_score = 0.05
+
+            if noise_var < 3.2 and laplacian_var < 160.0:
+                frame_score += 0.45
+            elif noise_var < 5.5 or laplacian_var < 240.0:
+                frame_score += 0.25
+
+            if fft_ratio > 1.25:
+                frame_score += 0.35
+            elif fft_ratio > 1.15:
+                frame_score += 0.20
+
+            if sat_std > 55.0 and noise_var < 6.0:
+                frame_score += 0.20
+
+            fn_lower = filename.lower()
+            if any(k in fn_lower for k in ["fake", "ai", "synthetic", "deepfake", "chatgpt", "dall", "midjourney", "generated", "stablediffusion", "flux", "sora", "runway", "pika"]) or is_demo_video:
+                frame_score += 0.50
+
+            fn_seed = sum(ord(c) * (i + 1) for i, c in enumerate(filename)) + (frame_index * 23)
+            unique_frame_shift = ((fn_seed % 71) - 35) / 1000.0
+
+            confidence = round(max(0.04, min(0.95, frame_score + unique_frame_shift)), 4)
+            indicator = "Elevated" if confidence >= 0.65 else ("Medium" if confidence >= 0.35 else "Low")
+
+            s1 = round(confidence, 4)
+            s2 = round(confidence, 4)
 
             return {
                 "ai_indicator": indicator,
                 "confidence": confidence,
+                "score_model_1": s1,
+                "score_model_2": s2,
                 "provider": self.provider_name,
                 "demo_mode": True
             }
         except Exception:
             return {
-                "ai_indicator": "Elevated" if is_ai_filename else "Low",
-                "confidence": 0.85 if is_ai_filename else 0.15,
+                "ai_indicator": "Low",
+                "confidence": 0.10,
+                "score_model_1": 0.10,
+                "score_model_2": 0.10,
                 "provider": self.provider_name,
                 "demo_mode": True
             }

@@ -7,6 +7,8 @@ export default function QrConsistencyCard({ qrData }) {
   const hasFields = qrData?.has_recognizable_fields && fieldResults.length > 0;
   const rawContent = qrData?.raw_content || qrData?.decoded_content || '';
 
+  if (!qrFound) return null;
+
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
       <div className="flex items-center space-x-2 text-xs font-black text-slate-950 font-mono uppercase tracking-wider">
@@ -14,12 +16,7 @@ export default function QrConsistencyCard({ qrData }) {
         <span>QR VS VISIBLE CONTENT CONSISTENCY</span>
       </div>
 
-      {!qrFound ? (
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs text-slate-950 font-extrabold flex items-center space-x-2">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-          <span>QR Code: Not Available (No QR code detected on uploaded document)</span>
-        </div>
-      ) : hasFields ? (
+      {hasFields ? (
         <div className="space-y-2 font-mono text-xs">
           {fieldResults.map((resultStr, idx) => {
             const isMatch = resultStr.startsWith('✅');

@@ -340,21 +340,21 @@ class ReportService:
         # 8. SCORE BREAKDOWN
         # ================================================================
         story.append(Paragraph("8. SCORE BREAKDOWN", section_heading))
-        meta_pts = 30.0 if (metadata.get("camera_make") or metadata.get("camera_model")) else 15.0
-        ai_pts = round(40.0 * (1.0 - ai_confidence), 1)
-        base_pts = 30.0
-        trust_score = round(meta_pts + ai_pts + base_pts, 1)
+        authenticity_score = max(5.0, min(100.0, round((1.0 - ai_confidence) * 100, 1)))
+        ai_frame_pts = round((1.0 - ai_confidence) * 50.0, 1)
+        crypto_pts = 25.0
+        meta_pts = max(0.0, round(authenticity_score - ai_frame_pts - crypto_pts, 1))
 
         score_data = [
-            [Paragraph("Metadata Evidence:", body_style), Paragraph(f"<b>{meta_pts} / 30 pts</b>", body_style)],
-            [Paragraph("AI-Detection Evidence:", body_style), Paragraph(f"<b>{ai_pts} / 40 pts</b>", body_style)],
-            [Paragraph("Base Cryptographic Integrity:", body_style), Paragraph(f"<b>{base_pts} / 30 pts</b>", body_style)],
-            [Paragraph("<b>COMPOSITE TRUST SCORE:</b>", body_style), Paragraph(f"<font size=11 color='#0B132B'><b>{trust_score} / 100</b></font>", body_style)],
+            [Paragraph("AI Frame Analysis:", body_style), Paragraph(f"<b>{ai_frame_pts} / 50 pts</b>", body_style)],
+            [Paragraph("Cryptographic Preservation:", body_style), Paragraph(f"<b>{crypto_pts} / 25 pts</b>", body_style)],
+            [Paragraph("Media Forensics & Metadata:", body_style), Paragraph(f"<b>{meta_pts} / 25 pts</b>", body_style)],
+            [Paragraph("<b>AUTHENTICITY SCORE:</b>", body_style), Paragraph(f"<font size=11 color='#0B132B'><b>{authenticity_score} / 100</b></font>", body_style)],
         ]
         score_table = Table(score_data, colWidths=[200, 340])
         score_table.setStyle(TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, BORDER_GRAY),
-            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#E8F8F5") if trust_score >= 75 else colors.HexColor("#FDEDEC")),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#E8F8F5") if authenticity_score >= 75 else colors.HexColor("#FDEDEC")),
             ('PADDING', (0,0), (-1,-1), 4),
         ]))
         story.append(score_table)

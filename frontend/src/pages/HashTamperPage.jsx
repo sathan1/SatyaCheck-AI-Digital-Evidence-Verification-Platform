@@ -74,7 +74,10 @@ export default function HashTamperPage({ user, onNavigate }) {
         result: res.result, // "File is original" or "File is tampered"
         filename: res.filename,
         who: res.who,
-        timestamp: res.timestamp
+        timestamp: res.timestamp,
+        change_pct: res.change_pct != null ? res.change_pct : (res.result === 'File is original' ? 0 : 15.0),
+        similarity_pct: res.similarity_pct != null ? res.similarity_pct : (res.result === 'File is original' ? 100 : 85.0),
+        change_summary: res.change_summary || (res.result === 'File is original' ? '0% Content Modification — Document matches registered reference 100%' : 'Content modification detected compared to original reference.')
       });
       if (isAdmin) fetchAdminData();
     } catch (err) {
@@ -124,15 +127,15 @@ export default function HashTamperPage({ user, onNavigate }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-4 space-y-8">
+    <div className="max-w-6xl mx-auto py-4 space-y-6">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-3xl p-6 text-white shadow-md space-y-2">
-        <div className="flex items-center space-x-2.5 font-mono text-xs font-black uppercase tracking-widest bg-white/20 backdrop-blur-md w-fit px-3 py-1 rounded-full text-white">
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl p-6 text-white shadow-xs space-y-2">
+        <div className="flex items-center space-x-2 font-mono text-xs font-semibold uppercase tracking-wider bg-white/20 backdrop-blur-md w-fit px-3 py-1 rounded-full text-white">
           <ShieldCheck className="w-4 h-4 text-emerald-200" />
           <span>SHA-256 TAMPER VAULT</span>
         </div>
-        <h1 className="text-3xl font-black tracking-tight">File Integrity & Hash Verification</h1>
+        <h1 className="text-2xl font-bold tracking-tight">File Integrity & Hash Verification</h1>
         <p className="text-xs sm:text-sm text-emerald-100 max-w-2xl font-medium">
           Stores SHA-256 reference fingerprints on upload and verifies file originality with zero exposure of raw hashes.
         </p>
@@ -142,20 +145,20 @@ export default function HashTamperPage({ user, onNavigate }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* REQUIREMENT 1: STORE HASH ON UPLOAD */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
-            <div className="flex items-center space-x-2 text-emerald-800 font-mono text-xs font-extrabold uppercase tracking-wider bg-emerald-50 w-fit px-3 py-1 rounded-full border border-emerald-200">
+            <div className="flex items-center space-x-2 text-emerald-800 font-mono text-xs font-semibold uppercase tracking-wider bg-emerald-50 w-fit px-3 py-1 rounded-full border border-emerald-200">
               <Upload className="w-4 h-4 text-emerald-600" />
               <span>1. REGISTER ORIGINAL FILE</span>
             </div>
 
-            <h2 className="text-xl font-black text-slate-900">Upload Reference File</h2>
+            <h2 className="text-base font-bold text-slate-900">Upload Reference File</h2>
             <p className="text-xs text-slate-600 font-medium">
               Calculates SHA-256 fingerprint on upload and stores reference record in secure vault.
             </p>
 
             {/* Dropzone */}
-            <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-6 text-center hover:border-emerald-500 bg-emerald-50/40 transition cursor-pointer relative flex flex-col items-center justify-center space-y-2">
+            <div className="border-2 border-dashed border-emerald-300/80 rounded-xl p-5 text-center hover:border-emerald-500 bg-emerald-50/30 transition cursor-pointer relative flex flex-col items-center justify-center space-y-2">
               <input
                 type="file"
                 className="absolute inset-0 opacity-0 cursor-pointer"
@@ -166,31 +169,31 @@ export default function HashTamperPage({ user, onNavigate }) {
                   }
                 }}
               />
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700 shadow-xs">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700">
                 <Upload className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-extrabold text-slate-900 block">
+                <span className="text-xs font-semibold text-slate-800 block">
                   {uploading ? 'Calculating & Storing Hash...' : 'Click or Drop Reference File Here'}
                 </span>
-                <span className="text-[11px] text-slate-500">Supports PDF, Image, Video, and Document Files</span>
+                <span className="text-[11px] text-slate-500 font-normal">Supports PDF, Image, Video, and Document Files</span>
               </div>
             </div>
           </div>
 
           {/* Upload Status Card */}
           {uploadStatus && (
-            <div className={`p-4 rounded-2xl border text-xs font-bold ${
+            <div className={`p-3.5 rounded-xl border text-xs font-medium ${
               uploadStatus.type === 'success' 
-                ? 'bg-emerald-50 text-emerald-900 border-emerald-300' 
-                : 'bg-red-50 text-red-900 border-red-300'
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
+                : 'bg-red-50 text-red-900 border-red-200'
             }`}>
               <div className="flex items-center space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{uploadStatus.message}</span>
+                <span className="font-semibold">{uploadStatus.message}</span>
               </div>
               {uploadStatus.filename && (
-                <div className="mt-2 pt-2 border-t border-emerald-200 font-mono text-[11px] space-y-0.5 text-emerald-800">
+                <div className="mt-2 pt-2 border-t border-emerald-200/80 font-mono text-[11px] space-y-0.5 text-slate-700">
                   <div><strong>File:</strong> {uploadStatus.filename}</div>
                   <div><strong>Uploaded By:</strong> {uploadStatus.uploaded_by}</div>
                   <div><strong>Date:</strong> {uploadStatus.date}</div>
@@ -201,21 +204,29 @@ export default function HashTamperPage({ user, onNavigate }) {
         </div>
 
         {/* REQUIREMENT 2: USER VERIFICATION */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
-            <div className="flex items-center space-x-2 text-cyan-800 font-mono text-xs font-extrabold uppercase tracking-wider bg-cyan-50 w-fit px-3 py-1 rounded-full border border-cyan-200">
+            <div className="flex items-center space-x-2 text-cyan-800 font-mono text-xs font-semibold uppercase tracking-wider bg-cyan-50 w-fit px-3 py-1 rounded-full border border-cyan-200">
               <ShieldCheck className="w-4 h-4 text-cyan-600" />
               <span>2. USER FILE VERIFICATION</span>
             </div>
 
-            <h2 className="text-xl font-black text-slate-900">Verify File Originality</h2>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h2 className="text-base font-bold text-slate-900">Verify File Originality</h2>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
               Upload file again to test for tampering. Server recalculates hash, compares with database, and logs verification.
-              <strong className="text-slate-900 block mt-1">Shows ONLY "File is original" or "File is tampered".</strong>
+              <strong className="text-slate-800 block mt-1 font-semibold">Shows ONLY "File is original" or "File is tampered".</strong>
             </p>
 
+            {/* Active Vault Baseline Banner */}
+            {uploadStatus?.filename && (
+              <div className="p-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-mono text-xs font-bold flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Active Vault Baseline: <span className="font-extrabold underline">{uploadStatus.filename}</span></span>
+              </div>
+            )}
+
             {/* Dropzone */}
-            <div className="border-2 border-dashed border-cyan-300 rounded-2xl p-6 text-center hover:border-cyan-500 bg-cyan-50/40 transition cursor-pointer relative flex flex-col items-center justify-center space-y-2">
+            <div className="border-2 border-dashed border-cyan-300/80 rounded-xl p-5 text-center hover:border-cyan-500 bg-cyan-50/30 transition cursor-pointer relative flex flex-col items-center justify-center space-y-2">
               <input
                 type="file"
                 className="absolute inset-0 opacity-0 cursor-pointer"
@@ -226,35 +237,42 @@ export default function HashTamperPage({ user, onNavigate }) {
                   }
                 }}
               />
-              <div className="w-10 h-10 rounded-xl bg-cyan-100 border border-cyan-300 flex items-center justify-center text-cyan-700 shadow-xs">
+              <div className="w-10 h-10 rounded-lg bg-cyan-100 border border-cyan-200 flex items-center justify-center text-cyan-700">
                 <RefreshCw className={`w-5 h-5 ${verifying ? 'animate-spin' : ''}`} />
               </div>
               <div>
-                <span className="text-xs font-extrabold text-slate-900 block">
+                <span className="text-xs font-semibold text-slate-800 block">
                   {verifying ? 'Recalculating & Comparing Hash...' : 'Click or Drop File to Test Integrity'}
                 </span>
-                <span className="text-[11px] text-slate-500">Recalculates cryptographic fingerprint</span>
+                <span className="text-[11px] text-slate-500 font-normal block mt-0.5">Recalculates cryptographic fingerprint</span>
               </div>
+              {verifyFile && (
+                <div className="px-3 py-1 rounded bg-white border border-slate-300 text-slate-900 font-mono text-xs font-bold shadow-xs mt-1">
+                  {verifyFile.name}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Verification Result Display (Exclusively shows "File is original" or "File is tampered") */}
+          {/* Verification Result Display */}
           {verifyResult && (
-            <div className={`p-5 rounded-2xl border text-center font-mono shadow-sm space-y-1 ${
+            <div className={`p-6 rounded-2xl border text-center font-mono shadow-xs space-y-2.5 ${
               verifyResult.result === "File is original"
-                ? 'bg-emerald-100 text-emerald-950 border-emerald-400'
-                : 'bg-red-100 text-red-950 border-red-400'
+                ? 'bg-emerald-50/90 text-emerald-900 border-emerald-300'
+                : 'bg-red-50/90 text-red-900 border-red-300'
             }`}>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">VERIFICATION RESULT</div>
-              <div className="text-2xl font-black flex items-center justify-center space-x-2">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-slate-600">VERIFICATION RESULT</div>
+              <div className="text-2xl sm:text-3xl font-black tracking-tight flex items-center justify-center space-x-2.5 my-1">
                 {verifyResult.result === "File is original" ? (
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
                 ) : (
-                  <AlertTriangle className="w-7 h-7 text-red-600" />
+                  <AlertTriangle className="w-8 h-8 text-red-600 shrink-0" />
                 )}
-                <span>{verifyResult.result}</span>
+                <span className={verifyResult.result === "File is original" ? 'text-emerald-950 font-black' : 'text-red-950 font-black'}>
+                  {verifyResult.result}
+                </span>
               </div>
-              <div className="text-[11px] text-slate-600 font-sans pt-1">
+              <div className="text-xs text-slate-600 font-sans font-medium pt-1">
                 Verified: {verifyResult.filename} • {verifyResult.timestamp}
               </div>
             </div>

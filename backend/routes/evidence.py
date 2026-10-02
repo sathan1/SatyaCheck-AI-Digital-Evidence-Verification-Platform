@@ -113,6 +113,13 @@ def upload_file():
     except Exception as e:
         print("Auto hash store note:", e)
 
+    # Automatically execute AI & Forensic analysis pipeline immediately upon upload
+    try:
+        from routes.analysis import run_auto_analysis
+        run_auto_analysis(evidence_id)
+    except Exception as e:
+        print("Auto analysis on upload notice:", e)
+
     return jsonify({
         "message": "File uploaded and fingerprinted successfully.",
         "evidence_id": evidence_id,

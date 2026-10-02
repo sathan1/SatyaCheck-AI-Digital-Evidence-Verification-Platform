@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, ArrowLeft, RefreshCw, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, RefreshCw, Layers, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import Breadcrumb from '../components/Breadcrumb';
 import { api } from '../services/api';
 import EvidenceHeader from '../components/EvidenceHeader';
 import WhyThisResult from '../components/WhyThisResult';
 import EvidenceCorrelation from '../components/EvidenceCorrelation';
-import IntegrityCard from '../components/IntegrityCard';
 import MetadataViewer from '../components/MetadataViewer';
 import SuspiciousRegionViewer from '../components/SuspiciousRegionViewer';
 import VideoTimelineViewer from '../components/VideoTimelineViewer';
 import CompressionResilienceCard from '../components/CompressionResilienceCard';
 import QrConsistencyCard from '../components/QrConsistencyCard';
-import LimitationsDisclaimer from '../components/LimitationsDisclaimer';
 import ReportDownloadButton from '../components/ReportDownloadButton';
 
 export default function EvidenceDetail({ evidenceId, onBack, onNavigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const fetchDetail = async () => {
     if (!evidenceId) return;
@@ -73,7 +72,7 @@ export default function EvidenceDetail({ evidenceId, onBack, onNavigate }) {
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 border border-slate-300 shadow-sm transition"
+          className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 border border-slate-300 shadow-xs transition"
         >
           <ArrowLeft className="w-4 h-4 text-emerald-600" />
           <span>Back to History</span>
@@ -82,7 +81,7 @@ export default function EvidenceDetail({ evidenceId, onBack, onNavigate }) {
         <div className="flex items-center space-x-3">
           <button
             onClick={fetchDetail}
-            className="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-300 shadow-sm transition"
+            className="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-300 shadow-xs transition"
             title="Refresh Analysis"
           >
             <RefreshCw className="w-4 h-4 text-emerald-600" />
@@ -98,48 +97,84 @@ export default function EvidenceDetail({ evidenceId, onBack, onNavigate }) {
       {/* 2. WHY THIS RESULT? (Explainable Synthesis) */}
       <WhyThisResult analysis={analysis} />
 
-      {/* 3. Evidence Signal Correlation Grid */}
-      <EvidenceCorrelation analysis={analysis} />
+      {/* 3. Full Forensic Report Accordion Card (Hidden for document/PDF files) */}
+      {fileType !== 'pdf' && fileType !== 'document' && (
+        <div className="glass-panel rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {/* Accordion Header */}
+          <div 
+            onClick={() => setIsReportOpen(!isReportOpen)}
+            className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50/80 transition"
+          >
+            <div className="flex items-center space-x-3.5">
+              <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex-shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-slate-900">Full Forensic Report</h3>
+                  <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                    Secondary Metrics • 3 Sections
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Evidence Correlation breakdown, Metadata provenance & Post-processing resilience
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex-shrink-0">
+              <span>{isReportOpen ? 'Hide report' : 'View full report'}</span>
+              {isReportOpen ? (
+                <ChevronUp className="w-4 h-4 text-slate-600" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-600" />
+              )}
+            </div>
+          </div>
 
-      {/* 4. File Integrity & Reference Verification Card */}
-      <IntegrityCard
-        evidence={evidence}
-        referenceData={analysis}
-        onReferenceUpdated={fetchDetail}
-      />
+          {/* Expanded Accordion Content */}
+          {isReportOpen && (
+            <div className="p-6 border-t border-slate-100 space-y-6 bg-slate-50/40">
+              {/* Signal Correlation Grid */}
+              <EvidenceCorrelation analysis={analysis} />
 
-      {/* 5. Metadata Provenance Findings */}
-      <MetadataViewer metadata={metadata} />
+              {/* Metadata Provenance */}
+              <MetadataViewer metadata={metadata} />
 
-      {/* 6. Media Specific Forensics */}
+              {/* IMAGE MEDIA TYPE SPECIFIC: Suspicious Region Viewer & Compression Resilience */}
+              {(fileType === 'image' || fileType === 'jpg' || fileType === 'png' || fileType === 'webp') && (
+                <>
+                  <SuspiciousRegionViewer
+                    imageUrl={`/uploads/${evidence.evidence_id}_${evidence.filename}`}
+                    heatmapUrl={forensic?.heatmap_path}
+                    elaScore={forensic?.ela_score}
+                    aiConfidence={analysis?.ai_confidence}
+                  />
 
-      {/* IMAGE MEDIA TYPE SPECIFIC: Suspicious Region Viewer & Compression Resilience */}
-      {(fileType === 'image' || fileType === 'jpg' || fileType === 'png' || fileType === 'webp') && (
-        <>
-          <SuspiciousRegionViewer
-            imageUrl={`/uploads/${evidence.evidence_id}_${evidence.filename}`}
-            heatmapUrl={forensic?.heatmap_path}
-            elaScore={forensic?.ela_score}
-            aiConfidence={analysis?.ai_confidence}
-          />
+                  <CompressionResilienceCard resilience={analysis?.resilience_json} />
+                </>
+              )}
 
-          <CompressionResilienceCard resilience={analysis?.resilience_json} />
-        </>
+              {/* VIDEO MEDIA TYPE SPECIFIC: Video Frame Timeline & Suspicious Interval */}
+              {(fileType === 'video' || fileType === 'mp4' || fileType === 'mov' || fileType === 'webm') && (
+                <VideoTimelineViewer
+                  videoFrames={video_frames}
+                  suspiciousIntervals={suspicious_intervals}
+                  evidenceId={evidence.evidence_id}
+                  videoUrl={evidence.storage_path ? `/uploads/${evidence.evidence_id}_${evidence.filename}` : '/samples/sample_video.mp4'}
+                />
+              )}
+
+              {/* QR Consistency Card */}
+              <QrConsistencyCard qrData={forensic?.raw_json?.qr_check || analysis?.resilience_json?.pdf_details?.qr_check} />
+            </div>
+          )}
+        </div>
       )}
 
-      {/* VIDEO MEDIA TYPE SPECIFIC: Video Frame Timeline & Suspicious Interval */}
-      {(fileType === 'video' || fileType === 'mp4' || fileType === 'mov' || fileType === 'webm') && (
-        <VideoTimelineViewer
-          videoFrames={video_frames}
-          suspiciousIntervals={suspicious_intervals}
-          evidenceId={evidence.evidence_id}
-          videoUrl={evidence.storage_path ? `/uploads/${evidence.evidence_id}_${evidence.filename}` : '/samples/sample_video.mp4'}
-        />
-      )}
-
-      {/* PDF MEDIA TYPE SPECIFIC DETAILS */}
+      {/* PDF DOCUMENT SPECIFICATIONS DETAILS */}
       {(fileType === 'pdf' || fileType === 'document') && (
-        <div className="glass-panel rounded-2xl p-6 border border-slate-200 bg-white shadow-md space-y-3">
+        <div className="glass-panel rounded-2xl p-6 border border-slate-200 bg-white shadow-sm space-y-3">
           <h3 className="text-base font-bold text-slate-900">PDF DOCUMENT SPECIFICATIONS</h3>
           <div className="text-xs text-slate-600 space-y-1">
             <p><strong>Producer / Software:</strong> {metadata?.software || 'PyMuPDF Service'}</p>
@@ -154,14 +189,8 @@ export default function EvidenceDetail({ evidenceId, onBack, onNavigate }) {
         </div>
       )}
 
-      {/* QR vs Visible Content Consistency Card */}
-      <QrConsistencyCard qrData={forensic?.raw_json?.qr_check || analysis?.resilience_json?.pdf_details?.qr_check} />
-
-      {/* 7. Limitations & Investigative Disclaimer */}
-      <LimitationsDisclaimer />
-
-      {/* Bottom Report Action Footer */}
-      <div className="flex justify-center pt-4">
+      {/* 4. Bottom Report Action Footer */}
+      <div className="flex justify-center pt-2">
         <ReportDownloadButton evidenceId={evidence.evidence_id} />
       </div>
     </div>
